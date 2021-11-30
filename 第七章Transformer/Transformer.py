@@ -390,3 +390,24 @@ class SubLayerConnection(nn.Module):
         # 先规范化，然后将结果传入子层处理，再对子层进行dropout操作。随机停止一些网络中神经元的作用，防止过拟合，
         # 因为存在跳跃连接，所以将输入x与dropout后的子层输出结果相加作为最终子层连接输出
         return x + self.dropout(subLayer(self.norm(x)))
+
+
+size = 512
+dropout = 0.2
+head = 8
+d_model = 512
+
+# 令x为位置编码器的输出
+x = pe_result
+mask = Variable(torch.zeros(8, 4, 4))
+# 假设子层中装的是多头注意力层，实例化类
+self_attn = MultiHeadedAttention(head, d_model)
+
+# 使用lambda表达式获取一个函数类型子层
+sublayer = lambda x : self_attn(x, x, x, mask)
+
+# 调用
+sc = SubLayerConnection(size, dropout)
+sc_result = sc(x, sublayer)
+print(sc_result)
+print(sc_result.shape)
