@@ -362,5 +362,31 @@ eps = 1e-6
 x = ff_result
 ln = LayerNorm(features, eps)
 ln_result = ln(x)
-print(ln_result)
-print(ln_result.shape)
+# print(ln_result)
+# print(ln_result.shape)
+
+
+# 使用SubLayerConnection来实现子层连接结构的类
+class SubLayerConnection(nn.Module):
+    def __init__(self, size, dropout=0.1):
+        """
+        初始化函数
+        :param size:词嵌入维度大小
+        :param dropout:置零比率
+        """
+        super(SubLayerConnection, self).__init__()
+        # 实例化规范化对象self.norm
+        self.norm = LayerNorm(size)
+        # 又使用nn中预定义的dropout实例化一个dropout对象
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x, subLayer):
+        """
+        前向逻辑函数
+        :param x: 接受上一层的输入
+        :param subLayer: 子层参数
+        :return:最终子层连接输出
+        """
+        # 先规范化，然后将结果传入子层处理，再对子层进行dropout操作。随机停止一些网络中神经元的作用，防止过拟合，
+        # 因为存在跳跃连接，所以将输入x与dropout后的子层输出结果相加作为最终子层连接输出
+        return x + self.dropout(subLayer(self.norm(x)))
