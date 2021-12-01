@@ -160,7 +160,8 @@ def attention(query, key, value, mask=None, dropout=None):
     d_k = query.size(-1)
     # 根据注意力公式进行计算
     scores = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(d_k)
-
+    # print(scores.shape)
+    # print(mask.shape)
     # 判断是否使用掩码张量
     if mask is not None:
         # 使用tensor的masked_fill方法，将掩码张量和scores张量每个位置一一比较，如果掩码张量处于0
@@ -399,7 +400,7 @@ d_model = 512
 
 # 令x为位置编码器的输出
 x = pe_result
-mask = Variable(torch.zeros(8, 4, 4))
+mask = Variable(torch.zeros(2, 4, 4))
 # 假设子层中装的是多头注意力层，实例化类
 self_attn = MultiHeadedAttention(head, d_model)
 
