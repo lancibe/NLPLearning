@@ -359,10 +359,12 @@ class LayerNorm(nn.Module):
 
 features = d_model
 eps = 1e-6
+
+
 # 输入x来自前馈全连接层的输出
-x = ff_result
-ln = LayerNorm(features, eps)
-ln_result = ln(x)
+# x = ff_result
+# ln = LayerNorm(features, eps)
+# ln_result = ln(x)
 # print(ln_result)
 # print(ln_result.shape)
 
@@ -380,6 +382,7 @@ class SubLayerConnection(nn.Module):
         self.norm = LayerNorm(size)
         # 又使用nn中预定义的dropout实例化一个dropout对象
         self.dropout = nn.Dropout(dropout)
+        self.size = size
 
     def forward(self, x, subLayer):
         """
@@ -405,10 +408,65 @@ mask = Variable(torch.zeros(2, 4, 4))
 self_attn = MultiHeadedAttention(head, d_model)
 
 # 使用lambda表达式获取一个函数类型子层
-sublayer = lambda x : self_attn(x, x, x, mask)
+sublayer = lambda x: self_attn(x, x, x, mask)
 
 # 调用
 sc = SubLayerConnection(size, dropout)
 sc_result = sc(x, sublayer)
-print(sc_result)
-print(sc_result.shape)
+# print(sc_result)
+# print(sc_result.shape)
+
+
+# 使用EncoderLayer类实现编码器层
+class EncoderLayer(nn.Module):
+    def __init__(self, size, self_attn, feed_forward, dropout):
+        """
+        初始化函数
+        :param size:词嵌入维度大小，也是编码器层大小
+        :param self_attn: 多头注意力子层实例化对象，并且是自注意力机制
+        :param feed_forward:传入前馈全连接层实例化对象
+        :param dropout:置零比率
+        """
+        super(EncoderLayer, self).__init__()
+
+        # 首先将self_attn和feed_forward传入
+        self.self_attn = self_attn
+        self.feed_forward = feed_forward
+
+        # 编码器层有两个子层连接结构，所以克隆
+        self.sublayer = clones(SubLayerConnection(size, dropout=dropout), 2)
+        # 传入size
+        self.size = size
+
+    def forward(self, x, mask):
+        """
+        前向函数
+        :param x:上一层的输出
+        :param mask: 掩码张量
+        :return: 该层输出
+        """
+        # 根据结构图的流程，先通过第一个子层连接结构，包含多头自注意力子层，
+        # 然后通过第二个子层连接结构，包含前馈全连接层
+        x = self.sublayer[0](x, lambda x: self.self_attn(x, x, x, mask))
+        return self.sublayer[1](x, self.feed_forward)
+
+
+size = 512
+head = 8
+d_model = 512
+d_ff = 64
+x = pe_result
+dropout = 0.2
+self_attn = MultiHeadedAttention(head, d_model)
+ff = PositionwiseFeedForward(d_model, d_ff, dropout)
+mask = Variable(torch.zeros(2, 4, 4))
+
+el = EncoderLayer(size, self_attn, ff, dropout)
+el_result = el(x, mask)
+print(el_result)
+print(el_result.shape)
+
+
+# 使用Encoder类来实现编码器
+class Encoder(nn.Module):
+    def
