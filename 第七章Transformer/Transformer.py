@@ -580,6 +580,59 @@ source_mask = target_mask = mask
 
 dl = DecoderLayer(size, self_attn, src_attn, ff, dropout)
 dl_result = dl(x, memory, source_mask, target_mask)
-print(dl_result)
-print(dl_result.shape)
+# print(dl_result)
+# print(dl_result.shape)
 
+
+# 使用Decoder类来实现解码器
+class Decoder(nn.Module):
+    def __init__(self, layer, N):
+        """
+        初始化函数
+        :param layer:解码器层
+        :param N: 解码器层个数
+        """
+        super(Decoder, self).__init__()
+
+        # 首先使用clones方法克隆，然后实例化一个规范化层
+        # 因为数据走过了所有的解码器层后最后要做规范化处理
+        self.layers = clones(layer, N)
+        self.norm = LayerNorm(layer.size)
+
+    def forward(self, x, memory, source_mask, target_mask):
+        """
+        前向函数
+        :param x: 目标数据的嵌入表示
+        :param memory: 编码器层输出
+        :param source_mask: 源数据掩码张量
+        :param target_mask: 目标数据掩码张量
+        :return: 最后的结果
+        """
+        for layer in self.layers:
+            x = layer(x, memory, source_mask, target_mask)
+        return self.norm(x)
+
+
+head = 8
+size = 512
+d_model = 512
+d_ff = 64
+dropout = 0.2
+c = copy.deepcopy
+
+attn = MultiHeadedAttention(head, d_model)
+ff = PositionwiseFeedForward(d_model, d_ff, dropout)
+layer = DecoderLayer(d_model, c(attn), c(attn), c(ff), dropout)
+N = 8
+
+# 输入参数
+x = pe_result
+memory = en_result
+mask = Variable(torch.zeros(2, 4, 4))
+source_mask = target_mask = mask
+
+# 调用
+de = Decoder(layer, N)
+de_result = de(x, memory, source_mask, target_mask)
+print(de_result)
+print(de_result.shape)
