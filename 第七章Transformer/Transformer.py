@@ -670,6 +670,83 @@ x = de_result
 
 gen = Generator(d_model, vocab_size)
 gen_result = gen(x)
-print(gen_result)
-print(gen_result.shape)
+# print(gen_result)
+# print(gen_result.shape)
+
+
+# 使用EncoderDecoder类来实现编码器解码器结构
+class EncoderDecoder(nn.Module):
+    def __init__(self, encoder, decoder, source_embed, target_embed, generator):
+        """
+        初始化函数
+        :param encoder:编码器对象
+        :param decoder: 解码器对象
+        :param source_embed: 源数据嵌入函数
+        :param target_embed: 目标数据嵌入函数
+        :param generator: 输出部分的类别生成器对象
+        """
+        super(EncoderDecoder, self).__init__()
+        # 传参
+        self.encoder = encoder
+        self.decoder = decoder
+        self.src_embed = source_embed
+        self.tgt_embed = target_embed
+        self.generator = generator
+
+    def forward(self, source, target, source_mask, target_mask):
+        """
+        前向函数
+        :param source:源数据
+        :param target: 目标数据
+        :param source_mask: 源数据掩码张量
+        :param target_mask: 目标数据掩码张量
+        :return: 系统输出结果
+        """
+        # 在函数中，将source、source_mask传入编码函数，得到结果后
+        # 与其他参数一同传入解码函数
+        return self.decode(self.encode(source, source_mask), source_mask, target, target_mask)
+
+    def encode(self, source, source_mask):
+        """
+        编码函数
+        :param source:源数据
+        :param source_mask:源数据掩码张量
+        :return:传入解码器并返回其结果
+        """
+        return self.encoder(self.src_embed(source), source_mask)
+
+    def decode(self, memory, source_mask, target, target_mask):
+        """
+        解码函数
+        :param memory:编码器输出
+        :param source_mask: 源数据掩码张量
+        :param target: 目标数据
+        :param target_mask: 目标数据掩码张量
+        :return: 传给解码器并返回结果
+        """
+        return self.decoder(self.tgt_embed(target), memory, source_mask, target_mask)
+
+
+# 实例化参数
+vocab_size = 1000
+d_model = 512
+encoder = en
+decoder = de
+source_embed = nn.Embedding(vocab_size, d_model)
+target_embed = nn.Embedding(vocab_size, d_model)
+generator = gen
+
+# 输入参数
+# 假设源数据与目标数据相同（实际并不应该相同）
+source = target = Variable(torch.LongTensor([[100, 2, 421, 508], [491, 998, 1, 221]]))
+
+# 假设src_mask和tgt_mask相同，实际也不应该相同
+source_mask = target_mask = Variable(torch.zeros(2, 4, 4))
+
+# 调用
+ed = EncoderDecoder(encoder, decoder, source_embed, target_embed, generator)
+ed_result = ed(source, target, source_mask, target_mask)
+print(ed_result)
+print(ed_result.shape)
+
 
