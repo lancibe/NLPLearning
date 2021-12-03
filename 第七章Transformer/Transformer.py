@@ -413,6 +413,8 @@ sublayer = lambda x: self_attn(x, x, x, mask)
 # 调用
 sc = SubLayerConnection(size, dropout)
 sc_result = sc(x, sublayer)
+
+
 # print(sc_result)
 # print(sc_result.shape)
 
@@ -512,6 +514,8 @@ mask = Variable(torch.zeros(2, 4, 4))
 
 en = Encoder(layer, N)
 en_result = en(x, mask)
+
+
 # print(en_result)
 # print(en_result.shape)
 
@@ -580,6 +584,8 @@ source_mask = target_mask = mask
 
 dl = DecoderLayer(size, self_attn, src_attn, ff, dropout)
 dl_result = dl(x, memory, source_mask, target_mask)
+
+
 # print(dl_result)
 # print(dl_result.shape)
 
@@ -634,6 +640,8 @@ source_mask = target_mask = mask
 # 调用
 de = Decoder(layer, N)
 de_result = de(x, memory, source_mask, target_mask)
+
+
 # print(de_result)
 # print(de_result.shape)
 
@@ -663,13 +671,15 @@ class Generator(nn.Module):
 
 
 d_model = 512
-vocab_size = 1000 # 词表大小为1000
+vocab_size = 1000  # 词表大小为1000
 
 # 输入参数是上一层网络的输出，我们使用来自解码器层的输出
 x = de_result
 
 gen = Generator(d_model, vocab_size)
 gen_result = gen(x)
+
+
 # print(gen_result)
 # print(gen_result.shape)
 
@@ -746,6 +756,8 @@ source_mask = target_mask = Variable(torch.zeros(2, 4, 4))
 # 调用
 ed = EncoderDecoder(encoder, decoder, source_embed, target_embed, generator)
 ed_result = ed(source, target, source_mask, target_mask)
+
+
 # print(ed_result)
 # print(ed_result.shape)
 
@@ -804,8 +816,56 @@ target_vocab = 11
 N = 6
 # 其他参数都是用默认值
 
-# 调用
-if __name__ == '__main__':
-    res = make_model(source_vocab, target_vocab, N)
-    print(res)
+# # 调用
+# if __name__ == '__main__':
+#     res = make_model(source_vocab, target_vocab, N)
+#     print(res)
 
+
+# 构建数据集生成器
+from pyitcast.transformer_utils import Batch
+from pyitcast.transformer_utils import get_std_opt
+from pyitcast.transformer_utils import LabelSmoothing
+from pyitcast.transformer_utils import SimpleLossCompute
+from pyitcast.transformer_utils import run_epoch
+from pyitcast.transformer_utils import greedy_decode
+
+
+def data_generator(V, batch, num_batch):
+    """
+    该函数用于随机生成copy任务的数据
+    :param V: 随机生成的数字最大值加一
+    :param batch: 每次输送给模型更新一次参数的数据量
+    :param num_batch: 一共输送多少次完成一轮
+    :return: 使用了yield，是一个生成器，封装了这一个批次的数据
+    """
+    # 使用for循环遍历num_batch
+    for i in range(num_batch):
+        # 在循环中使用np的random.randint方法随机生成[1,V)的整数
+        # 分布在(batch, 10)形状的矩阵中，然后再把numpy形式转为tensor
+        data = torch.from_numpy(np.random.randint(1, V, size=(batch, 10)))
+
+        # 接着使数据矩阵中第一列数字都为1，这一列也就成了起始标志列
+        data[:, 0] = 1
+
+        # 因为是copy任务，所有source和target完全相同，且数据样本作用变量不需要求梯度
+        # 因此requires_grad设置为false
+        source = Variable(data, requires_grad=False)
+        target = Variable(data, requires_grad=False)
+
+        # 使用Batch对source和target进行对应批次的掩码张量生成，最后使用yield返回
+        yield Batch(source, target)
+
+
+# 输入参数
+V = 11
+
+# 每次给模型20个数据进行参数更新
+batch = 20
+
+# 连续30次后完成一轮数据的遍历
+num_batch = 30
+
+if __name__ == '__main__':
+    res = data_generator(V, batch, num_batch)
+    print(res)
