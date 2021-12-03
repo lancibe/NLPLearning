@@ -634,5 +634,42 @@ source_mask = target_mask = mask
 # 调用
 de = Decoder(layer, N)
 de_result = de(x, memory, source_mask, target_mask)
-print(de_result)
-print(de_result.shape)
+# print(de_result)
+# print(de_result.shape)
+
+
+# 将输出部分线性层和softmax层一起实现，因为二者的共同目标是生成最后的结构
+class Generator(nn.Module):
+    def __init__(self, d_model, vocab_size):
+        """
+        初始化函数
+        :param d_model:词嵌入维度
+        :param vocab_size: 词表大小
+        """
+        super(Generator, self).__init__()
+        # 首先就是使用nn中预定义线性层进行实例化，得到一个对象
+        # 这个线性层参数有两个，分别就是初始化函数传入的两个参数
+        self.project = nn.Linear(d_model, vocab_size)
+
+    def forward(self, x):
+        """
+        前向函数
+        :param x:上一层输出
+        :return: 输出部分输出结果
+        """
+        # 在函数中，首先使用self.project进行线性变换
+        # 然后使用以实现的log_softmax进行softmax处理
+        return F.log_softmax(self.project(x), dim=-1)
+
+
+d_model = 512
+vocab_size = 1000 # 词表大小为1000
+
+# 输入参数是上一层网络的输出，我们使用来自解码器层的输出
+x = de_result
+
+gen = Generator(d_model, vocab_size)
+gen_result = gen(x)
+print(gen_result)
+print(gen_result.shape)
+
