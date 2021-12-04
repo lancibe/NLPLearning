@@ -15,6 +15,8 @@ from torchtext.data.utils import get_tokenizer
 # 已经构建完成的TransformerModel
 from pyitcast.transformer import TransformerModel
 
+# 绘图工具包
+import matplotlib.pyplot as plt
 
 # 创建语料域, 语料域是存放语料的数据结构,
 # 它的四个参数代表给存放语料（或称作文本）施加的作用.
@@ -30,7 +32,6 @@ TEXT = torchtext.data.Field(tokenize=get_tokenizer("basic_english"),
 # 然后使用torchtext的数据集方法导入数据
 # 并切分为训练文本，验证文本，测试文本，并对这些文本施加刚刚创建的语料域
 train_txt, val_txt, test_txt = torchtext.datasets.WikiText2.splits(TEXT)
-
 
 # 将训练集文本数据构建一个vocab对象
 # 可以用vocab对象的stoi方法统计文本共包含的不重复词汇总数
@@ -56,7 +57,7 @@ def batchify(data, bsz):
     # 使用narrow方法对不规整剩余数据进行删除
     # 第一个参数代表横轴删除还是纵轴删除，0为横，1为纵
     # 第二个和第三个参数代表保留开始轴到结束轴的数值，类似于切片
-    data = data.narrow(0, 0, nbatch*bsz)
+    data = data.narrow(0, 0, nbatch * bsz)
 
     data = data.view(bsz, -1).t().contiguous()
     return data.to(device)
@@ -74,9 +75,9 @@ train_data = batchify(train_txt, batch_size)
 val_data = batchify(val_txt, eval_batch_size)
 test_data = batchify(test_txt, eval_batch_size)
 
-
 # 设置句子最大长度35
 bptt = 35
+
 
 def get_batch(source, i):
     """
@@ -86,15 +87,125 @@ def get_batch(source, i):
     :return: 源数据与目标数据
     """
     # 确定句子长度，应该是bptt和len(source)-1-i的小值
-    seq_len = min(bptt, len(source)-1-i)
+    seq_len = min(bptt, len(source) - 1 - i)
 
     # 语言模型训练的源数据的第i批次数据将是batchify结果切片
-    data = source[i:i+seq_len]
+    data = source[i:i + seq_len]
 
     # 根据语言模型训练的语料规定，他的目标数据是源数据后移一位
     # 最后目标数据的切片会越界，所以使用view(-1)保证形状正常
-    target = source[i+1:i+1+seq_len].view(-1)
+    target = source[i + 1: i + 1 + seq_len].view(-1)
     return data, target
+
+
+# 通过TEXT.vocab.stoi属性获得不重复词汇总数
+ntokens = len(TEXT.vocab.stoi)
+# 词嵌入大小
+emsize = 200
+# 前馈全连接层节点数
+nhid = 200
+# 编码器层数量
+nlayers = 2
+# 多头注意力机制头数
+nhead = 2
+# 置0比率
+dropout = 0.2
+
+# 将参数输入到模型中
+model = TransformerModel(ntokens, emsize, nhead, nhid, nlayers, dropout).to(device)
+
+# 模型初始化后，接下来进行损失函数和优化方法的选择
+# 使用nn自带的交叉熵损失
+criterion = nn.CrossEntropyLoss()
+
+# 初始学习率
+lr = 5.0
+
+# 优化器选择torch自带的SGD随机梯度下降方法
+optimizer = torch.optim.SGD(model.parameters(), lr=lr)
+
+# 学习率调整方法，使用torch自带的lr_scheduler，将优化器传入
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1.0, gamma=0.95)
+
+import time
+
+
+def train(epoch):
+    """
+    训练函数
+    :param epoch:循环次数
+    :return: None
+    """
+    # 模型开启训练模式
+    model.train()
+    total_loss = 0.
+    start_time = time.time()
+    plot_losses = []
+    # 遍历批次数据
+    for batch, i in enumerate(range(0, train_data.size(0) - 1, bptt)):
+        # 获取源数据和目标数据
+        data, targets = get_batch(train_data, i)
+        # 设置初始梯度为0
+        optimizer.zero_grad()
+        # 装入model得到输出
+        output = model(data)
+        # 将输出和目标数据传入损失函数对象
+        loss = criterion(output.view(-1, ntokens), targets)
+        # 反向传播获得总损失
+        loss.backward()
+        # 使用nn自带的clip_grad_norm_方法进行梯度规范化，防止出现梯度爆炸或消失
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
+        # 更新模型参数
+        optimizer.step()
+        # 损失加和
+        total_loss += loss.item()
+        # 日志打印间隔
+        log_interval = 200
+        # 如果batch是200的倍数，则打印日志
+        if batch % log_interval == 0 and batch > 0:
+            # 平均损失
+            cur_loss = total_loss / log_interval
+            # 需要的时间
+            elapsed = time.time() - start_time
+            # 打印轮数、当前批次和总批次，当前学习率，训练速度
+            # 平均损失，以及困惑度
+            # 困惑度是衡量语言模型的重要指标，他是交叉熵平均损失取自然对数的底数
+            print('| epoch {:3d} | {:5d}/{:5d} batches | '
+                  'lr {:02.2f} | ms/batch {:5.2f} | '
+                  'loss {:5.2f} | ppl {:8.2f}'.format(
+                epoch, batch, len(train_data) // bptt, scheduler.get_lr()[0],
+                elapsed * 1000 / log_interval,
+                cur_loss, math.exp(cur_loss)
+            ))
+        # 作图间隔
+        plt_interval = 50
+        plot_loss_total += loss
+        # 做出损失曲线的图
+        if batch % plt_interval == 0 and batch > 0:
+            plot_loss_avg = plot_loss_total / plt_interval
+            plot_losses.append(plot_loss_avg)
+            plot_loss_total = 0
+
+        plt.figure()
+        plt.plot(plot_losses)
+        plt.savefig('./learn_loss.png')
+        # 每个批次结束后，总损失归0
+        total_loss = 0
+        # 开始时间取当前时间
+        start_time = time.time()
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
