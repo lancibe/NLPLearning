@@ -836,7 +836,10 @@ from pyitcast.transformer_utils import LabelSmoothing
 # 计算方法可以认为是交叉熵损失函数
 from pyitcast.transformer_utils import SimpleLossCompute
 
+# 模型单论训练工具包run_epoch，该工具将对模型使用给定的损失函数计算方法进行单轮参数更新并打印每轮参数更新的损失结果
 from pyitcast.transformer_utils import run_epoch
+
+
 from pyitcast.transformer_utils import greedy_decode
 
 
@@ -893,3 +896,31 @@ criterion = LabelSmoothing(size=V, padding_idx=0, smoothing=0.0)
 loss = SimpleLossCompute(model.generator, criterion, model_optimizer)
 
 
+def run(model, loss, epochs=10):
+    """
+    模型训练函数
+    :param model:将要训练的模型
+    :param loss: 使用的损失计算方法
+    :param epochs: 模型训练的轮数
+    :return: None
+    """
+
+    # 遍历轮数
+    for epoch in range(epochs):
+        # 模型将使用训练模式，更新参数
+        model.train()
+        # 训练时，batch_size是20
+        run_epoch(data_generator(V, 8, 20), model, loss)
+
+        # 模型使用评估模式，参数将不会变化
+        model.eval()
+        # 评估时，batch_size是5
+        run_epoch(data_generator(V, 8, 5), model, loss)
+
+
+# 输入参数
+# 进行10轮训练
+epochs = 10
+# model和loss都是来自上一步的结果
+if __name__ == "__main__":
+    run(model, loss, epochs)
