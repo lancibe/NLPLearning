@@ -40,6 +40,40 @@ TEXT.build_vocab(train_txt)
 device = torch.device("cuda")
 
 
+def batchify(data, bsz):
+    """
+    该函数用于将文本数据映射成连续数字，并转换指定的样式，指定的样式可参考图片
+    :param data: 之前得到的文本数据(train_txt, val_txt, test_txt)
+    :param bsz: batch_size，每次模型更新参数的数据量
+    :return: 处理之后的数据
+    """
+    # 先将单词映射成连续对应的数字
+    data = TEXT.numericalize([data.examples[0].text])
+
+    # 接着用数据词汇总数除bsz并取整得到一个nbatch代表需要多少次batch后遍历所有数据
+    nbatch = data.size(0) // bsz
+
+    # 使用narrow方法对不规整剩余数据进行删除
+    # 第一个参数代表横轴删除还是纵轴删除，0为横，1为纵
+    # 第二个和第三个参数代表保留开始轴到结束轴的数值，类似于切片
+    data = data.narrow(0, 0, nbatch*bsz)
+
+    data = data.view(bsz, -1).t().contiguous()
+    return data.to(device)
+
+
+# 用batchify来处理训练数据，验证数据以及测试数据
+# 训练数据的bsz
+batch_size = 20
+
+# 验证和测试数据（统称为评估数据）的bsz
+eval_batch_size = 10
+
+# 获得处理后的数据
+train_data = batchify(train_txt, batch_size)
+val_data = batchify(val_txt, eval_batch_size)
+test_data = batchify(test_txt, eval_batch_size)
+
 
 
 
