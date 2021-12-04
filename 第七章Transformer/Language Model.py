@@ -210,7 +210,7 @@ def evaluate(eval_model, data_source):
     total_loss = 0
     # 因为评估模式模型参数不变，所以不进行反向传播
     with torch.no_grad():
-        for i in range(0, data_source[0]-1, bptt):
+        for i in range(0, data_source.size(0)-1, bptt):
             data, targets = get_batch(data_source, i)
             output = eval_model(data)
             output_flat = output.view(-1, ntokens)
