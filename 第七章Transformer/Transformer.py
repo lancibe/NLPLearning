@@ -839,7 +839,9 @@ from pyitcast.transformer_utils import SimpleLossCompute
 # 模型单论训练工具包run_epoch，该工具将对模型使用给定的损失函数计算方法进行单轮参数更新并打印每轮参数更新的损失结果
 from pyitcast.transformer_utils import run_epoch
 
-
+# 贪婪解码工具包，该工具将对最终结果进行贪婪解码
+# 贪婪解码的方式是每次预测都选择概率最大的结果进行输出
+# 他不一定能获得全局最优性，但是能有最高的执行效率
 from pyitcast.transformer_utils import greedy_decode
 
 
@@ -917,10 +919,25 @@ def run(model, loss, epochs=10):
         # 评估时，batch_size是5
         run_epoch(data_generator(V, 8, 5), model, loss)
 
+    # 模型进入测试模式
+    model.eval()
+
+    # 假定的输入张量
+    source = Variable(torch.LongTensor([[1, 3, 2, 5, 4, 6, 7, 8, 9, 10]]))
+
+    # 定义源数据掩码张量，因为元素都是1，我们用1代表不遮掩
+    # 因此相当于对于源码没有任何遮掩
+    source_mask = Variable(torch.ones(1, 1, 10))
+
+    # 最后将model，src，src_mask，解码的最大长度限制max_len，默认为10
+    # 以及起始标志数，用1
+    result = greedy_decode(model, source, source_mask, max_len=10, start_symbol=1)
+    print(result)
+
 
 # 输入参数
-# 进行10轮训练
-epochs = 10
+# 进行50轮训练
+epochs = 50
 # model和loss都是来自上一步的结果
 if __name__ == '__main__':
     run(model, loss, epochs)
