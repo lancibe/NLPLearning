@@ -119,7 +119,7 @@ model = TransformerModel(ntokens, emsize, nhead, nhid, nlayers, dropout).to(devi
 criterion = nn.CrossEntropyLoss()
 
 # 初始学习率
-lr = 5.0
+lr = 10.
 
 # 优化器选择torch自带的SGD随机梯度下降方法
 optimizer = torch.optim.SGD(model.parameters(), lr=lr)
@@ -140,7 +140,8 @@ def train(epoch):
     model.train()
     total_loss = 0.
     start_time = time.time()
-    plot_losses = []
+    # plot_losses = []
+    # plot_loss_total = 0
     # 遍历批次数据
     for batch, i in enumerate(range(0, train_data.size(0) - 1, bptt)):
         # 获取源数据和目标数据
@@ -160,7 +161,7 @@ def train(epoch):
         # 损失加和
         total_loss += loss.item()
         # 日志打印间隔
-        log_interval = 200
+        log_interval = 10
         # 如果batch是200的倍数，则打印日志
         if batch % log_interval == 0 and batch > 0:
             # 平均损失
@@ -177,18 +178,19 @@ def train(epoch):
                 elapsed * 1000 / log_interval,
                 cur_loss, math.exp(cur_loss)
             ))
-        # 作图间隔
-        plt_interval = 50
-        plot_loss_total += loss
-        # 做出损失曲线的图
-        if batch % plt_interval == 0 and batch > 0:
-            plot_loss_avg = plot_loss_total / plt_interval
-            plot_losses.append(plot_loss_avg)
-            plot_loss_total = 0
+        # # 作图间隔
+        # plt_interval = 50
+        # plot_loss_total += loss
+        # # 做出损失曲线的图
+        # if batch % plt_interval == 0 and batch > 0:
+        #     plot_loss_avg = plot_loss_total / plt_interval
+        #     plot_losses.append(plot_loss_avg)
+        #     plot_loss_total = 0
 
-        plt.figure()
-        plt.plot(plot_losses)
-        plt.savefig('./learn_loss.png')
+        # plt.figure()
+        # plt.plot(plot_losses)
+        # plt.savefig('./learn_loss.png')
+        # plot_loss_total = 0
         # 每个批次结束后，总损失归0
         total_loss = 0
         # 开始时间取当前时间
@@ -208,7 +210,7 @@ def evaluate(eval_model, data_source):
     total_loss = 0
     # 因为评估模式模型参数不变，所以不进行反向传播
     with torch.no_grad():
-        for i in range(0, data_source(0)-1, bptt):
+        for i in range(0, data_source[0]-1, bptt):
             data, targets = get_batch(data_source, i)
             output = eval_model(data)
             output_flat = output.view(-1, ntokens)
@@ -217,6 +219,38 @@ def evaluate(eval_model, data_source):
             cur_loss = total_loss / ((data_source.size(0)-1) / bptt)
     return cur_loss
 
+
+# 初始化最佳验证损失，初始值无穷大
+import copy
+best_val_loss = float('inf')
+
+# 训练轮数
+epochs = 3
+
+# 定义最佳模型变量，初值为None
+best_model = None
+
+if __name__ == '__main__':
+    for epoch in range(1, epochs + 1):
+        # 获得轮数开始时间
+        epoch_start_time = time.time()
+        # 调用训练函数
+        train(epoch)
+        # 训练后模型参数发生了变化
+        # 将模型和评估数据传入评估函数中
+        val_loss = evaluate(model, val_data)
+        # 打印每轮的评估日志
+        print('-'*50)
+        print('| end of epoch {:3d} | time: {:5.2f}s | valid loss {:5.2f} | valid ppl {:8.2f}'.format(
+            epoch, (time.time() - epoch_start_time), val_loss, math.exp(val_loss)
+        ))
+        print('-'*50)
+
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            best_model = copy.deepcopy(model)
+        # 每轮都会对优化方法的学习率进行调整
+        scheduler.step()
 
 
 
