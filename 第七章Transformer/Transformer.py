@@ -824,9 +824,18 @@ N = 6
 
 # 构建数据集生成器
 from pyitcast.transformer_utils import Batch
+
+# 优化器工具包，获得标准的针对Transformer模型的优化器。基于Adam优化器，使其对序列到序列的任务更有效
 from pyitcast.transformer_utils import get_std_opt
+
+# 标签平滑工具包，小幅度的改变原有标签值的值域。因为在理论上即使人工标注数据也并非完全正确，会受外界因素的影响而产生微小偏差
+# 因此使用标签平滑来弥补这种偏差，减少模型对某一条规律的绝对认知，以防止过拟合。
 from pyitcast.transformer_utils import LabelSmoothing
+
+# 损失计算工具包，对标签平滑后的结果进行损失计算
+# 计算方法可以认为是交叉熵损失函数
 from pyitcast.transformer_utils import SimpleLossCompute
+
 from pyitcast.transformer_utils import run_epoch
 from pyitcast.transformer_utils import greedy_decode
 
@@ -866,6 +875,21 @@ batch = 20
 # 连续30次后完成一轮数据的遍历
 num_batch = 30
 
-if __name__ == '__main__':
-    res = data_generator(V, batch, num_batch)
-    print(res)
+# if __name__ == '__main__':
+#     res = data_generator(V, batch, num_batch)
+#     print(res)
+
+
+# 使用make_model获得model
+model = make_model(V, V, N=2)
+
+# 使用get_std_opt获得模型优化器
+model_optimizer = get_std_opt(model)
+
+# 使用LabelSmoothing获得标签平滑对象
+criterion = LabelSmoothing(size=V, padding_idx=0, smoothing=0.0)
+
+# 使用SimpleLossCompute获得利用标签平滑结果的损失方法
+loss = SimpleLossCompute(model.generator, criterion, model_optimizer)
+
+
