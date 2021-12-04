@@ -922,5 +922,6 @@ def run(model, loss, epochs=10):
 # 进行10轮训练
 epochs = 10
 # model和loss都是来自上一步的结果
-if __name__ == "__main__":
+if __name__ == '__main__':
     run(model, loss, epochs)
+
