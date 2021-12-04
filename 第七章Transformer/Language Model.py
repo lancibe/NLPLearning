@@ -37,7 +37,7 @@ train_txt, val_txt, test_txt = torchtext.datasets.WikiText2.splits(TEXT)
 TEXT.build_vocab(train_txt)
 
 # 然后选择设备
-device = torch.device("cuda")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def batchify(data, bsz):
@@ -73,6 +73,28 @@ eval_batch_size = 10
 train_data = batchify(train_txt, batch_size)
 val_data = batchify(val_txt, eval_batch_size)
 test_data = batchify(test_txt, eval_batch_size)
+
+
+# 设置句子最大长度35
+bptt = 35
+
+def get_batch(source, i):
+    """
+    用于获取每个批次合理大小的源数据和目标数据
+    :param source: 通过batchify得到的三个data
+    :param i: 具体批次次数
+    :return: 源数据与目标数据
+    """
+    # 确定句子长度，应该是bptt和len(source)-1-i的小值
+    seq_len = min(bptt, len(source)-1-i)
+
+    # 语言模型训练的源数据的第i批次数据将是batchify结果切片
+    data = source[i:i+seq_len]
+
+    # 根据语言模型训练的语料规定，他的目标数据是源数据后移一位
+    # 最后目标数据的切片会越界，所以使用view(-1)保证形状正常
+    target = source[i+1:i+1+seq_len].view(-1)
+    return data, target
 
 
 
